@@ -1,4 +1,4 @@
-# Day 0 — Introduction & Cloud Run Demo
+# Day 1 — Introduction & Cloud Run Demo
 
 ## Atmospheric Effects Showcase
 

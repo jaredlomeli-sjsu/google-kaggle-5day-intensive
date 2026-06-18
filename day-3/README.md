@@ -1,4 +1,4 @@
-# Day 2 — AI Agents
+# Day 3 — AI Agents
 
 Three projects exploring Google ADK multi-agent workflows and Claude Code custom skills.
 
