@@ -6,10 +6,10 @@ Projects and notes from the [Google / Kaggle 5-Day Generative AI Intensive](http
 
 | Day | Topic | Contents |
 |-----|-------|----------|
-| [Day 0](./day-0/) | Intro & Deployment | Cloud Run demo app link |
-| [Day 1](./day-1/) | Google Cloud AI APIs | Reference notes for capstone projects |
-| [Day 2](./day-2/) | AI Agents | Customer support agent (ADK), Flask web UI, Claude Code skills |
-| Day 3+ | Coming soon | — |
+| [Day 1](./day-1/) | Intro & Deployment | Cloud Run demo app link |
+| [Day 2](./day-2/) | Google Cloud AI APIs | Reference notes for capstone projects |
+| [Day 3](./day-3/) | AI Agents | Customer support agent (ADK), Flask web UI, Claude Code skills |
+| Day 4+ | Coming soon | — |
 
 ## Tech Stack
 
