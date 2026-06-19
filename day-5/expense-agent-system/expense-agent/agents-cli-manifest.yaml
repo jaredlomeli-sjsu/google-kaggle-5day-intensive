@@ -1,0 +1,23 @@
+# agents-cli deployment manifest
+# Generated for Day 5 — Expense Agent Runtime deployment
+
+name: expense-agent
+display_name: Ambient Expense Agent
+description: >
+  Event-driven ADK 2.0 agent that auto-approves expenses under $100
+  and escalates higher amounts for human review via Pub/Sub.
+
+entry_point: app.agent_runtime_app:agent_runtime
+
+runtime:
+  python_version: "3.11"
+  machine_type: n1-standard-1
+
+environment_variables:
+  GOOGLE_CLOUD_LOCATION: us-central1
+  GOOGLE_GENAI_USE_VERTEXAI: "True"
+  # LOGS_BUCKET_NAME: your-bucket-name   # uncomment to enable GCS telemetry
+
+scaling:
+  min_instances: 0
+  max_instances: 5

@@ -1,0 +1,7 @@
+{
+  "remote_agent_runtime_id": "FILL_IN_AFTER_DEPLOY",
+  "deployment_timestamp": "FILL_IN_AFTER_DEPLOY",
+  "project_id": "YOUR_PROJECT_ID_HERE",
+  "region": "us-central1",
+  "notes": "Run 'agents-cli deploy' and paste the returned ID into remote_agent_runtime_id"
+}

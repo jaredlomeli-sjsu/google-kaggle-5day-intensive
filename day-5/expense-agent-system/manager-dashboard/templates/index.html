@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expense Approval Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #e0e0e0;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 { font-size: 2rem; font-weight: 700; color: #ffffff; }
+    header p  { margin-top: 0.4rem; color: #a0aec0; font-size: 0.9rem; }
+
+    /* ---- Submission Form ---- */
+    .submit-section {
+      max-width: 700px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .submit-section h2 {
+      font-size: 1rem;
+      color: #a3bffa;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .glass-form {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group.full-width { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.75rem;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input, select {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: #667eea;
+    }
+
+    select option { background: #302b63; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-submit:hover   { opacity: 0.9; }
+    .btn-submit:active  { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .submit-result {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      display: none;
+    }
+
+    .result-approved { background: rgba(72,187,120,0.15); color: #68d391; border: 1px solid #68d391; }
+    .result-pending  { background: rgba(237,137,54,0.15);  color: #f6ad55; border: 1px solid #f6ad55; }
+    .result-error    { background: rgba(252,72,72,0.15);   color: #fc8181; border: 1px solid #fc8181; }
+
+    /* ---- Divider ---- */
+    .divider {
+      max-width: 1200px;
+      margin: 0 auto 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: #4a5568;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* ---- Cards ---- */
+    #cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .submitter { font-size: 0.8rem; color: #90cdf4; text-transform: uppercase; letter-spacing: 0.06em; }
+    .amount    { font-size: 1.75rem; font-weight: 800; color: #fff; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge-LOW    { background: rgba(72,187,120,0.2); color: #68d391; border: 1px solid #68d391; }
+    .badge-MEDIUM { background: rgba(237,137,54,0.2); color: #f6ad55; border: 1px solid #f6ad55; }
+    .badge-HIGH   { background: rgba(252,72,72,0.2);  color: #fc8181; border: 1px solid #fc8181; }
+
+    .detail-row { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.875rem; }
+    .detail-label { color: #718096; min-width: 80px; flex-shrink: 0; }
+    .detail-value { color: #e2e8f0; }
+
+    .ai-box {
+      background: rgba(0,0,0,0.25);
+      border-left: 3px solid #667eea;
+      border-radius: 0 8px 8px 0;
+      padding: 0.75rem;
+      margin: 1rem 0;
+      font-size: 0.8rem;
+      color: #cbd5e0;
+      line-height: 1.5;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+
+    .btn {
+      flex: 1;
+      padding: 0.6rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:hover  { opacity: 0.85; transform: scale(1.02); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-approve { background: linear-gradient(135deg, #38a169, #48bb78); color: #fff; }
+    .btn-reject  { background: linear-gradient(135deg, #c53030, #e53e3e); color: #fff; }
+
+    .card-result {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      text-align: center;
+      display: none;
+    }
+
+    .card-result-approved { background: rgba(72,187,120,0.15); color: #68d391; }
+    .card-result-rejected { background: rgba(252,72,72,0.15);  color: #fc8181; }
+
+    #empty-state {
+      display: none;
+      text-align: center;
+      padding: 3rem 2rem;
+      color: #4a5568;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    #empty-state h2 { font-size: 1.1rem; color: #718096; margin-bottom: 0.4rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Expense Approval Dashboard</h1>
+    <p>Submit an expense or review pending approvals below</p>
+  </header>
+
+  <!-- Submission Form -->
+  <div class="submit-section">
+    <h2>Submit Expense</h2>
+    <div class="glass-form">
+      <div class="form-grid">
+
+        <div class="form-group">
+          <label>Submitter Email</label>
+          <input type="email" id="submitter" placeholder="jared@company.com" />
+        </div>
+
+        <div class="form-group">
+          <label>Amount ($)</label>
+          <input type="number" id="amount" placeholder="0.00" min="0" step="0.01" />
+        </div>
+
+        <div class="form-group">
+          <label>Category</label>
+          <select id="category">
+            <option value="meals">Meals</option>
+            <option value="travel">Travel</option>
+            <option value="equipment">Equipment</option>
+            <option value="software">Software</option>
+            <option value="accommodation">Accommodation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="date" />
+        </div>
+
+        <div class="form-group full-width">
+          <label>Description</label>
+          <input type="text" id="description" placeholder="Brief description of the expense" />
+        </div>
+
+      </div>
+
+      <button class="btn-submit" onclick="submitExpense()">Submit Expense</button>
+      <div class="submit-result" id="submit-result"></div>
+    </div>
+  </div>
+
+  <div class="divider">Pending Approvals</div>
+
+  <div id="empty-state">
+    <h2>No pending approvals</h2>
+    <p>Submit an expense over $100 above to trigger a human review card.</p>
+  </div>
+
+  <div id="cards-container"></div>
+
+  <script>
+    // Set today's date as default
+    document.getElementById('date').valueAsDate = new Date();
+
+    async function submitExpense() {
+      const btn    = document.querySelector('.btn-submit');
+      const result = document.getElementById('submit-result');
+
+      const submitter   = document.getElementById('submitter').value.trim();
+      const amount      = parseFloat(document.getElementById('amount').value);
+      const category    = document.getElementById('category').value;
+      const date        = document.getElementById('date').value;
+      const description = document.getElementById('description').value.trim();
+
+      if (!submitter || !amount || !description || !date) {
+        showSubmitResult('error', 'Please fill in all fields.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+      result.style.display = 'none';
+
+      try {
+        const res  = await fetch('/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ submitter, amount, category, date, description }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          showSubmitResult('error', data.detail || 'Submission failed.');
+          return;
+        }
+
+        if (data.status === 'auto_approved') {
+          showSubmitResult('approved', `Auto-approved: ${data.message}`);
+          clearForm();
+        } else if (data.status === 'pending_review') {
+          showSubmitResult('pending', `Needs review: card added to the dashboard below.`);
+          clearForm();
+          await loadPending();
+        }
+
+      } catch (err) {
+        showSubmitResult('error', `Error: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Submit Expense';
+      }
+    }
+
+    function showSubmitResult(type, message) {
+      const el = document.getElementById('submit-result');
+      el.className = `submit-result result-${type}`;
+      el.textContent = message;
+      el.style.display = 'block';
+    }
+
+    function clearForm() {
+      document.getElementById('submitter').value   = '';
+      document.getElementById('amount').value      = '';
+      document.getElementById('description').value = '';
+      document.getElementById('date').valueAsDate  = new Date();
+    }
+
+    async function loadPending() {
+      const container = document.getElementById('cards-container');
+      const empty     = document.getElementById('empty-state');
+
+      try {
+        const res  = await fetch('/api/pending');
+        const data = await res.json();
+
+        container.innerHTML = '';
+
+        if (!Array.isArray(data) || data.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+
+        empty.style.display = 'none';
+        data.forEach(item => container.appendChild(buildCard(item)));
+
+      } catch (err) {
+        container.innerHTML = `<p style="color:#fc8181;text-align:center">Failed to load pending: ${err.message}</p>`;
+      }
+    }
+
+    function buildCard(item) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${item.session_id}`;
+
+      const risk = item.risk_level || 'MEDIUM';
+
+      card.innerHTML = `
+        <div class="card-header">
+          <div>
+            <div class="submitter">${item.submitter || 'Unknown'}</div>
+            <div class="amount">$${Number(item.amount).toFixed(2)}</div>
+          </div>
+          <span class="badge badge-${risk}">${risk} risk</span>
+        </div>
+
+        <div class="detail-row">
+          <span class="detail-label">Category</span>
+          <span class="detail-value">${item.category || '—'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Date</span>
+          <span class="detail-value">${item.date || '—'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Description</span>
+          <span class="detail-value">${item.description || '—'}</span>
+        </div>
+
+        <div class="ai-box">
+          <strong style="color:#a3bffa">AI Analysis:</strong><br/>
+          ${item.ai_recommendation || 'No AI analysis available.'}
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-approve" onclick="submitAction('${item.session_id}', 'approve', this)">Approve</button>
+          <button class="btn btn-reject"  onclick="submitAction('${item.session_id}', 'reject', this)">Reject</button>
+        </div>
+
+        <div class="card-result" id="result-${item.session_id}"></div>
+      `;
+
+      return card;
+    }
+
+    async function submitAction(sessionId, action, btn) {
+      const card    = document.getElementById(`card-${sessionId}`);
+      const result  = document.getElementById(`result-${sessionId}`);
+      const buttons = card.querySelectorAll('.btn');
+
+      buttons.forEach(b => b.disabled = true);
+
+      try {
+        const res  = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, action, reviewer: 'manager' }),
+        });
+        const data = await res.json();
+
+        result.style.display = 'block';
+        result.className = `card-result card-result-${action}d`;
+        result.textContent = action === 'approve' ? 'Approved' : 'Rejected';
+
+        // Fade out and remove card after 2 seconds
+        setTimeout(() => {
+          card.style.transition = 'opacity 0.5s';
+          card.style.opacity = '0';
+          setTimeout(() => { card.remove(); checkEmpty(); }, 500);
+        }, 1500);
+
+      } catch (err) {
+        result.style.display = 'block';
+        result.className = 'card-result card-result-rejected';
+        result.textContent = `Error: ${err.message}`;
+        buttons.forEach(b => b.disabled = false);
+      }
+    }
+
+    function checkEmpty() {
+      const container = document.getElementById('cards-container');
+      const empty     = document.getElementById('empty-state');
+      if (container.children.length === 0) {
+        empty.style.display = 'block';
+      }
+    }
+
+    // Load pending on page open
+    loadPending();
+  </script>
+</body>
+</html>

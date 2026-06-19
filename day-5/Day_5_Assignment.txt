@@ -1,0 +1,292 @@
+Google & Kaggle 5-Day AI Intensive — Day 5 Assignment
+Topic: Spec-Driven Production-Grade Development & Agent Deployment at Cloud Scale
+
+Sources:
+  - Whitepaper: Spec-Driven Production-Grade Development in the Age of Vibe Coding (Kaggle)
+  - Codelab 1: Enterprise Cloud Scale — Deploying the Expense Agent to Agent Runtime on Google Cloud
+  - Codelab 2: Vibecode a Frontend with Antigravity
+
+---
+
+PART 1 — WHITEPAPER: Spec-Driven Development vs. Vibe Coding
+
+Overview
+"Vibe coding" refers to the practice of generating code rapidly through natural language prompts —
+leaning on an AI model's intuition and context to produce working software without strict upfront
+design. While this accelerates prototyping, it carries risk when applied directly to production
+systems where reliability, security, and maintainability matter.
+
+Spec-driven development is the counterpart: defining precise requirements, interfaces, and
+behavioral contracts BEFORE writing (or generating) any code. The whitepaper argues that the
+most effective AI-assisted engineering combines both — use vibe coding for fast iteration, but
+anchor every output against a living specification.
+
+Key Concepts
+
+1. The Specification as Source of Truth
+   - A spec defines WHAT the system does (inputs, outputs, constraints, error behaviors).
+   - It is written before any implementation and serves as the acceptance criterion.
+   - AI-generated code is evaluated against the spec, not just tested to see if it "works."
+   - Specifications become machine-readable contracts that LLMs can reference when generating code.
+
+2. Why Pure Vibe Coding Fails at Production Scale
+   - Hallucinated APIs: Models invent library methods that do not exist.
+   - Brittle test coverage: Tests are generated to match the implementation, not the requirement.
+   - Security gaps: Without explicit security specs, AI omits authentication, input validation, etc.
+   - Drift: Each regeneration diverges further from the original intent without a reference document.
+
+3. The Spec-Driven Workflow
+   Step 1 — Write a natural language specification (user stories, edge cases, constraints).
+   Step 2 — Convert the specification into structured artifacts:
+             - OpenAPI schemas for REST endpoints
+             - Pydantic models for data validation
+             - ADK agent contracts (input/output types, tool definitions)
+   Step 3 — Use AI (Antigravity / Gemini) to generate implementation CONSTRAINED by the spec.
+   Step 4 — Validate generated code against the spec (type checkers, integration tests, linters).
+   Step 5 — Iterate: refine spec → regenerate → validate.
+
+4. Production-Grade Requirements Checklist
+   - Typed interfaces (Pydantic, TypeScript, OpenAPI)
+   - Explicit error handling and fallback behaviors
+   - Security policies (OIDC auth, least-privilege IAM roles)
+   - Observability hooks (structured logging, Cloud Trace spans)
+   - Dependency pinning and lockfiles (uv lock, pip freeze)
+   - Declarative deployment descriptors (agent.yaml, service.yaml)
+
+5. "Antigravity" as a Spec-Aware IDE
+   Google's Antigravity IDE integrates LLM code generation directly into the development loop.
+   It reads context files (GEMINI.md, skill definitions, project specs) to constrain generation,
+   making it a practical tool for spec-driven vibe coding in a managed environment.
+
+Key Takeaway
+The goal is not to choose between vibe coding and rigorous engineering — it is to use AI speed
+while enforcing structure through specifications. A prompt without a spec produces a demo.
+A prompt constrained by a spec produces a production system.
+
+---
+
+PART 2 — CODELAB 1: Deploying the Expense Agent to Agent Runtime on Google Cloud
+
+What is Agent Runtime?
+Agent Runtime is a fully managed Google Cloud service for hosting ADK 2.0 agents. It provides:
+  - Stateful execution: sessions survive across requests
+  - Secure sandboxing: isolated compute per agent
+  - Enterprise observability: built-in Cloud Trace and Cloud Logging integration
+  - Agent Registry: centralized inventory of deployed agents
+
+The Expense Agent (built in Day 4) processes employee expense reports. Its key behaviors:
+  - Auto-approves expenses under $100 (no human needed)
+  - Escalates expenses over $100 via a RequestInput node (human-in-the-loop)
+  - Logs all decisions to BigQuery for audit purposes
+
+Deployment Workflow — Step by Step
+
+Step 1: Environment Setup
+  - Authenticate with Google Cloud: gcloud auth login
+  - Set project: gcloud config set project YOUR_PROJECT_ID
+  - Enable required APIs: Agent Runtime, Cloud Trace, Cloud Logging, Artifact Registry
+  - Install tools: pip install agents-cli, uv
+
+Step 2: Scaffold the Project (if starting fresh)
+  agents-cli init expense-agent --skill expense-reports
+
+Step 3: Generate Production Deployment Files
+  agents-cli prepare
+  This generates:
+    - agent.yaml         — deployment descriptor (runtime config, memory, timeouts)
+    - requirements.lock  — pinned dependency manifest
+    - main.py wrapper    — production entry point with health check endpoints
+
+Step 4: Dry-Run Verification
+  agents-cli deploy --dry-run
+  Validates the deployment descriptor and dependency graph without actually deploying.
+  Catches missing environment variables, invalid IAM bindings, or schema mismatches.
+
+Step 5: Deploy to Agent Runtime
+  agents-cli deploy
+  Pushes the container image to Artifact Registry and registers it with Agent Runtime.
+  Returns an AGENT_ID used in all subsequent API calls.
+
+Step 6: Test with Sample Payloads
+  # Auto-approval (under $100)
+  agents-cli run --agent-id AGENT_ID \
+    --input '{"employee": "jared.lomeli@sjsu.edu", "amount": 45.00, "description": "Team lunch"}'
+
+  # Escalation (over $100)
+  agents-cli run --agent-id AGENT_ID \
+    --input '{"employee": "jared.lomeli@sjsu.edu", "amount": 350.00, "description": "Conference travel"}'
+
+Step 7: Monitor Execution
+  - Cloud Trace: view full distributed traces per request (Gemini calls, tool invocations, latency)
+  - Cloud Logging: structured logs with session IDs and decision outcomes
+  - Agent Registry: gcloud agents list — see all registered agents and their status
+
+Step 8: Cleanup
+  agents-cli delete --agent-id AGENT_ID
+  gcloud artifacts repositories delete agent-images --location=us-central1
+
+Key Architecture Concepts
+
+ADK 2.0 Graph Model
+  - Agents are defined as directed graphs of Nodes (LLM calls, tool calls, conditionals).
+  - RequestInput nodes are special: they PAUSE the graph and persist state until external input
+    arrives, enabling asynchronous human-in-the-loop patterns.
+  - The graph definition is in agent.yaml and loaded at startup by Agent Runtime.
+
+Dependency Pinning with uv
+  uv is a Rust-based Python package manager used because:
+  - It produces deterministic lockfiles (uv.lock) matching production environments exactly.
+  - It is significantly faster than pip for resolving and installing dependencies in CI/CD.
+  - agents-cli uses uv internally to generate requirements.lock during the prepare step.
+
+IAM Roles Required for Deployment
+  - roles/aiplatform.user              — invoke Vertex AI / Gemini
+  - roles/logging.logWriter            — write structured logs
+  - roles/cloudtrace.agent             — emit trace spans
+  - roles/artifactregistry.writer      — push container images
+  - roles/run.invoker                  — (for Cloud Run services, if applicable)
+
+---
+
+PART 3 — CODELAB 2: Vibecode a Frontend with Antigravity
+
+Architecture Overview
+This codelab adds a human-facing approval UI on top of the deployed expense agent.
+The system is event-driven:
+
+  [Expense Agent] --> [Paused at RequestInput] --> [Session Service stores state]
+       |
+       v
+  [Pub/Sub topic: "expense-reports"] --> [Push subscription with OIDC auth]
+       |
+       v
+  [Manager Dashboard (FastAPI on Cloud Run)] --> Manager approves/rejects
+       |
+       v
+  [Pub/Sub message] --> [Agent Runtime: resume session with decision]
+       |
+       v
+  [Expense Agent resumes] --> [Completes workflow]
+
+The Manager Dashboard — Three Endpoints
+  GET  /              — HTML dashboard UI (glassmorphic design, built by Antigravity)
+  GET  /api/pending   — Returns JSON list of paused sessions from the ADK Session Service
+  POST /api/action    — Accepts {session_id, action: "approve"|"reject"} and sends the
+                        decision to Agent Runtime to resume the paused workflow
+
+How Antigravity "Vibecodes" the Frontend
+Antigravity is Google's agentic IDE that generates code from natural language prompts.
+The workflow:
+  1. Describe the desired UI/API in plain English inside Antigravity.
+  2. Antigravity reads GEMINI.md and project context to constrain generation.
+  3. It generates the FastAPI app, HTML template, and Pub/Sub integration code.
+  4. Developer reviews, adjusts the prompt if needed, and iterates.
+  5. Final result is deployed with: agents-cli deploy (or gcloud run deploy)
+
+Cloud Run Deployment of the Dashboard
+  gcloud run deploy manager-dashboard \
+    --source . \
+    --region us-central1 \
+    --allow-unauthenticated \
+    --set-env-vars AGENT_ID=YOUR_AGENT_ID,PROJECT_ID=YOUR_PROJECT_ID
+
+Pub/Sub Integration — Key Details
+
+Creating Topics
+  gcloud pubsub topics create expense-reports
+  gcloud pubsub topics create expense-reports-dead-letter
+
+Creating an Authenticated Push Subscription
+  gcloud pubsub subscriptions create expense-sub \
+    --topic expense-reports \
+    --push-endpoint https://DASHBOARD_URL/api/action \
+    --push-auth-service-account pubsub-invoker@PROJECT_ID.iam.gserviceaccount.com \
+    --push-no-wrapper
+
+  The --push-no-wrapper flag is critical:
+  Without it, Pub/Sub wraps the payload in a JSON envelope with base64-encoded data.
+  With --push-no-wrapper, the raw message body is delivered directly to the endpoint,
+  matching the FastAPI endpoint's expected payload format.
+
+OIDC Authentication Flow
+  Pub/Sub generates an OIDC token signed by the service account.
+  Cloud Run validates the token before allowing the POST to /api/action.
+  This prevents unauthorized callers from injecting fake approval messages.
+
+End-to-End Test Scenarios
+
+  Scenario A — Auto-Approval (amount < $100)
+    1. Submit expense: $45 team lunch
+    2. Agent processes → BigQuery logged → no Pub/Sub message sent
+    3. Manager dashboard shows no pending items
+    Expected: immediate approval, no human intervention
+
+  Scenario B — Escalation (amount > $100)
+    1. Submit expense: $350 conference travel
+    2. Agent pauses at RequestInput node → session state persisted
+    3. Pub/Sub message arrives at manager dashboard → shows in /api/pending
+    4. Manager clicks "Approve" → POST /api/action → Agent Runtime resumes session
+    5. Agent completes → BigQuery logged with approval timestamp and manager ID
+    Expected: workflow completes only after human decision
+
+Key Concept: Session Persistence
+  When an ADK agent hits a RequestInput node, Agent Runtime serializes the entire graph state
+  (variable bindings, tool outputs so far, pending node) and stores it in the Session Service.
+  The session_id is the key used to resume. This enables:
+  - Asynchronous approval workflows (manager may respond hours later)
+  - Reliable delivery (session does not expire until explicitly resumed or cancelled)
+  - Audit trail (full state history queryable via Cloud Logging)
+
+---
+
+PART 4 — INTEGRATED CONCEPTS & SUMMARY
+
+How the Three Sources Connect
+  Whitepaper → provides the engineering philosophy (spec first, then generate)
+  Codelab 1  → applies that philosophy to backend agent deployment (agent.yaml as the spec)
+  Codelab 2  → extends to a full-stack production system (event-driven frontend + backend)
+
+Core Technologies Covered in Day 5
+  Technology              | Purpose
+  ----------------------- | -----------------------------------------------
+  ADK 2.0                 | Graph-based agent workflow framework
+  Agent Runtime           | Managed hosting for stateful ADK agents
+  agents-cli              | CLI for scaffolding, deploying, and managing agents
+  Antigravity IDE         | Agentic IDE for spec-constrained code generation
+  uv                      | Fast Python package manager with lockfile support
+  FastAPI                 | Python web framework for the manager dashboard
+  Cloud Run               | Serverless platform for the dashboard container
+  Pub/Sub                 | Asynchronous messaging between agent and dashboard
+  OIDC Authentication     | Secure service-to-service auth for push subscriptions
+  Cloud Trace             | Distributed tracing for agent execution monitoring
+  BigQuery                | Audit log storage for expense decisions
+
+The Human-in-the-Loop Pattern (Summary)
+  1. Agent reaches a decision point requiring human judgment
+  2. Agent emits a message to Pub/Sub and pauses (RequestInput node)
+  3. Session state is persisted in the Session Service
+  4. Manager receives notification via dashboard (GET /api/pending)
+  5. Manager submits decision (POST /api/action)
+  6. Decision is forwarded to Agent Runtime → agent resumes from paused state
+  7. Agent completes and logs outcome to BigQuery
+
+Production Readiness Checklist (from all three sources)
+  [ ] Agent behavior defined by a spec (agent.yaml + Pydantic models)
+  [ ] Dependencies pinned (uv.lock / requirements.lock)
+  [ ] Dry-run passes before live deploy
+  [ ] IAM roles follow least-privilege principle
+  [ ] Distributed tracing enabled (Cloud Trace)
+  [ ] Structured logging in place (Cloud Logging)
+  [ ] Dead-letter topic configured for failed Pub/Sub deliveries
+  [ ] OIDC authentication on all service-to-service calls
+  [ ] End-to-end tests for both auto-approval and escalation scenarios
+  [ ] Cleanup procedure documented (delete agent, subscription, topic, Cloud Run service)
+
+---
+
+Resources
+  Whitepaper : https://www.kaggle.com/whitepaper-spec-driven-production-grade-development-in-the-age-of-vibe-coding
+  Codelab 1  : https://codelabs.developers.google.com/enterprise-cloud-scale-deploying-the-expense-agent-to-agent-runtime-on-google-cloud
+  Codelab 2  : https://codelabs.developers.google.com/vibecode-frontend-with-antigravity
+  ADK Docs   : https://google.github.io/adk-docs/
+  agents-cli : https://pypi.org/project/agents-cli/

@@ -1,0 +1,151 @@
+==============================================================================
+DAY 5 — HOW TO ACTIVATE THIS PROJECT WITH YOUR GOOGLE API KEY
+==============================================================================
+
+WHAT YOU BUILT (without Antigravity):
+  expense-agent/        → The AI agent that processes expense reports
+  manager-dashboard/    → The web UI where a manager approves or rejects them
+
+==============================================================================
+STEP 1 — GET A FREE GOOGLE API KEY (5 minutes, no billing required)
+==============================================================================
+
+  1. Go to: https://aistudio.google.com/apikey
+  2. Click "Create API Key"
+  3. Copy the key (looks like: AIzaSy...)
+
+  This gives you access to Gemini AI — enough to run the agent locally.
+
+==============================================================================
+STEP 2 — SET UP YOUR CREDENTIALS
+==============================================================================
+
+  In the expense-agent folder:
+    Copy .env.example → .env
+    Open .env and set:
+      GOOGLE_API_KEY=AIzaSy...your-key-here...
+      GOOGLE_GENAI_USE_VERTEXAI=False
+      GOOGLE_CLOUD_PROJECT=   (leave blank for now — not needed with API key)
+
+==============================================================================
+STEP 3 — INSTALL DEPENDENCIES
+==============================================================================
+
+  You need Python 3.11+ and uv installed.
+  Install uv: pip install uv
+
+  Then install the agent:
+    cd expense-agent
+    uv sync
+
+  Install the dashboard:
+    cd ../manager-dashboard
+    uv sync
+
+==============================================================================
+STEP 4 — RUN LOCALLY (no Google Cloud account needed)
+==============================================================================
+
+  Terminal 1 — Start the expense agent:
+    cd expense-agent
+    uv run uvicorn app.fast_api_app:fast_api_app --reload --port 8080
+
+  Terminal 2 — Start the manager dashboard:
+    cd manager-dashboard
+    uv run uvicorn main:app --reload --port 8081
+
+  Open in browser: http://localhost:8081
+  You'll see the dashboard with demo expense cards.
+
+  Test the agent directly:
+    curl -X POST http://localhost:8080/apps/expense_agent/trigger/pubsub \
+      -H "Content-Type: application/json" \
+      -d "{\"description\": \"Team lunch $45 at Chipotle\"}"
+
+  Expected: AUTO-APPROVED (under $100 threshold)
+
+    curl -X POST http://localhost:8080/apps/expense_agent/trigger/pubsub \
+      -H "Content-Type: application/json" \
+      -d "{\"description\": \"Conference flight $350 to NYC\"}"
+
+  Expected: HUMAN REVIEW REQUIRED (over $100)
+
+==============================================================================
+STEP 5 — RUN THE TESTS (no API key needed for these)
+==============================================================================
+
+    cd expense-agent
+    uv run pytest tests/ -v
+
+==============================================================================
+STEP 6 — DEPLOY TO GOOGLE CLOUD (requires billing account)
+==============================================================================
+
+  When you're ready to deploy for real:
+
+  Prerequisites:
+    - Google Cloud account with billing enabled
+    - gcloud CLI installed: https://cloud.google.com/sdk/docs/install
+    - agents-cli installed: pip install agents-cli
+
+  6a. Authenticate:
+    gcloud auth login
+    gcloud auth application-default login
+    gcloud config set project YOUR_PROJECT_ID
+
+  6b. Deploy the expense agent to Agent Runtime:
+    cd expense-agent
+    agents-cli deploy --project YOUR_PROJECT_ID --region us-central1
+    → Copy the returned Agent Runtime ID into .env as AGENT_RUNTIME_ID
+
+  6c. Deploy the manager dashboard to Cloud Run:
+    cd ../manager-dashboard
+    gcloud run deploy manager-dashboard \
+      --source . \
+      --region us-central1 \
+      --allow-unauthenticated \
+      --set-env-vars AGENT_RUNTIME_ID=YOUR_ID,GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
+    → Copy the returned URL into .env as DASHBOARD_URL
+
+  6d. Set up Pub/Sub (so the agent is triggered by messages):
+    gcloud pubsub topics create expense-reports
+    gcloud pubsub topics create expense-reports-dead-letter
+
+    gcloud pubsub subscriptions create expense-sub \
+      --topic expense-reports \
+      --push-endpoint https://YOUR_DASHBOARD_URL/api/action \
+      --push-no-wrapper
+
+  6e. Test end-to-end:
+    gcloud pubsub topics publish expense-reports \
+      --message='{"description": "Team lunch $45"}'
+
+    gcloud pubsub topics publish expense-reports \
+      --message='{"description": "Conference travel $350"}'
+
+==============================================================================
+FILE STRUCTURE SUMMARY
+==============================================================================
+
+  expense-agent-system/
+  ├── .env.example                 ← Master credentials template
+  ├── HOW_TO_ACTIVATE.txt          ← This file
+  ├── expense-agent/
+  │   ├── app/
+  │   │   ├── agent.py             ← The AI workflow (ADK 2.0)
+  │   │   ├── agent_runtime_app.py ← Cloud deployment wrapper
+  │   │   ├── fast_api_app.py      ← Local development server
+  │   │   └── app_utils/           ← Telemetry + type definitions
+  │   ├── tests/
+  │   │   └── test_agent.py        ← Unit tests (no API key needed)
+  │   ├── agents-cli-manifest.yaml ← Cloud deployment config
+  │   ├── deployment_metadata.json ← Tracks deployed agent ID
+  │   └── pyproject.toml           ← Dependencies
+  └── manager-dashboard/
+      ├── templates/
+      │   └── index.html           ← Glassmorphic approval UI
+      ├── main.py                  ← FastAPI app (3 endpoints)
+      ├── .env.example             ← Dashboard credentials template
+      └── pyproject.toml           ← Dependencies
+
+==============================================================================
