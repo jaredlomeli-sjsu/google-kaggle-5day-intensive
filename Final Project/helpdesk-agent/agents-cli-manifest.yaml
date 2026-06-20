@@ -1,0 +1,24 @@
+# agents-cli deployment manifest
+# Nexus Technologies IT Helpdesk Triage Agent
+
+name: helpdesk-agent
+display_name: Nexus Technologies IT Helpdesk Agent
+description: >
+  Event-driven ADK 2.0 agent that auto-resolves routine IT tickets,
+  detects and flags security threats, and escalates complex incidents
+  to an IT supervisor via the Nexus Helpdesk Supervisor Dashboard.
+
+entry_point: app.agent_runtime_app:agent_runtime
+
+runtime:
+  python_version: "3.11"
+  machine_type: n1-standard-1
+
+environment_variables:
+  GOOGLE_CLOUD_LOCATION: us-central1
+  GOOGLE_GENAI_USE_VERTEXAI: "True"
+  # LOGS_BUCKET_NAME: your-bucket-name   # uncomment to enable GCS telemetry
+
+scaling:
+  min_instances: 0
+  max_instances: 5

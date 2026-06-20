@@ -1,0 +1,183 @@
+==============================================================================
+NEXUS TECHNOLOGIES IT HELPDESK TRIAGE SYSTEM — HOW TO ACTIVATE
+==============================================================================
+
+WHAT YOU BUILT:
+  helpdesk-agent/        → The AI agent that triages IT support tickets
+  supervisor-dashboard/  → The web UI where an IT supervisor escalates or closes them
+
+TICKET TRIAGE LOGIC:
+  Routine tickets (password reset, printer, WiFi, VPN) → AUTO-RESOLVED instantly
+  Security threats (phishing, malware, data breach)   → SECURITY ESCALATION (no AI)
+  Complex incidents (everything else)                 → AI RISK ANALYSIS → SUPERVISOR REVIEW
+
+==============================================================================
+STEP 1 — GET A FREE GOOGLE API KEY (5 minutes, no billing required)
+==============================================================================
+
+  Available after June 22:
+  1. Go to: https://aistudio.google.com/apikey
+  2. Click "Create API Key"
+  3. Copy the key (looks like: AIzaSy...)
+
+  NOTE: Until you have the API key, the auto-resolve and security-flag paths
+  work perfectly. Only the AI risk analysis step requires the key.
+
+==============================================================================
+STEP 2 — SET UP YOUR CREDENTIALS
+==============================================================================
+
+  In the helpdesk-agent folder:
+    Copy .env.example → .env
+    Open .env and set:
+      GOOGLE_API_KEY=AIzaSy...your-key-here...
+      GOOGLE_GENAI_USE_VERTEXAI=False
+      GOOGLE_CLOUD_PROJECT=   (leave blank — not needed with API key)
+
+==============================================================================
+STEP 3 — INSTALL DEPENDENCIES
+==============================================================================
+
+  You need Python 3.11+ and uv installed.
+  Install uv: pip install uv
+
+  Install the helpdesk agent:
+    cd helpdesk-agent
+    uv sync
+
+  Install the supervisor dashboard:
+    cd ../supervisor-dashboard
+    uv sync
+
+==============================================================================
+STEP 4 — RUN LOCALLY (no Google Cloud account needed)
+==============================================================================
+
+  Terminal 1 — Start the helpdesk agent:
+    cd helpdesk-agent
+    uv run uvicorn app.fast_api_app:fast_api_app --reload --port 8080
+
+  Terminal 2 — Start the supervisor dashboard:
+    cd supervisor-dashboard
+    uv run uvicorn main:app --reload --port 8081
+
+  Open in browser: http://localhost:8081
+  You will see the IT Supervisor Dashboard with the ticket submission form.
+
+  --- TEST SCENARIOS ---
+
+  Routine ticket (auto-resolved, no card):
+    Reporter: john@nexus.com
+    Category: Account/Access
+    Affected System: Windows Login
+    Description: I forgot my password and cannot log in to my workstation
+
+  Security ticket (flagged, no AI, no card):
+    Reporter: jane@nexus.com
+    Category: Security
+    Affected System: Email
+    Description: I received a suspicious phishing email with a malware attachment
+
+  Elevated ticket (card appears with AI analysis):
+    Reporter: bob@nexus.com
+    Category: Software
+    Affected System: Corporate ERP
+    Description: The ERP system has been down for 2 hours, 50 employees cannot work
+
+  --- TEST VIA CURL ---
+
+  curl -X POST http://localhost:8080/apps/helpdesk_agent/trigger/pubsub \
+    -H "Content-Type: application/json" \
+    -d "{\"description\": \"Password reset for john@nexus.com\"}"
+
+  Expected: AUTO-RESOLVED (routine ticket, under threshold)
+
+  curl -X POST http://localhost:8080/apps/helpdesk_agent/trigger/pubsub \
+    -H "Content-Type: application/json" \
+    -d "{\"description\": \"Database server is down, all users affected\"}"
+
+  Expected: HUMAN REVIEW REQUIRED (elevated, complex incident)
+
+==============================================================================
+STEP 5 — RUN THE TESTS (no API key needed)
+==============================================================================
+
+    cd helpdesk-agent
+    uv run pytest tests/ -v
+
+  All 9 tests should pass without a Google API key.
+
+==============================================================================
+STEP 6 — DEPLOY TO GOOGLE CLOUD (requires billing account)
+==============================================================================
+
+  Prerequisites:
+    - Google Cloud account with billing enabled
+    - gcloud CLI: https://cloud.google.com/sdk/docs/install
+    - agents-cli: pip install agents-cli
+
+  6a. Authenticate:
+    gcloud auth login
+    gcloud auth application-default login
+    gcloud config set project YOUR_PROJECT_ID
+
+  6b. Deploy the helpdesk agent to Agent Runtime:
+    cd helpdesk-agent
+    agents-cli deploy --project YOUR_PROJECT_ID --region us-central1
+    → Copy the returned Agent Runtime ID into .env as AGENT_RUNTIME_ID
+
+  6c. Deploy the supervisor dashboard to Cloud Run:
+    cd ../supervisor-dashboard
+    gcloud run deploy supervisor-dashboard \
+      --source . \
+      --region us-central1 \
+      --allow-unauthenticated \
+      --set-env-vars AGENT_RUNTIME_ID=YOUR_ID,GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
+    → Copy the returned URL into .env as DASHBOARD_URL
+
+  6d. Set up Pub/Sub:
+    gcloud pubsub topics create helpdesk-tickets
+    gcloud pubsub topics create helpdesk-tickets-dead-letter
+
+    gcloud pubsub subscriptions create helpdesk-sub \
+      --topic helpdesk-tickets \
+      --push-endpoint https://YOUR_DASHBOARD_URL/api/submit \
+      --push-no-wrapper
+
+  6e. Test end-to-end:
+    gcloud pubsub topics publish helpdesk-tickets \
+      --message='{"description": "Password reset for john@nexus.com"}'
+
+    gcloud pubsub topics publish helpdesk-tickets \
+      --message='{"description": "ERP system down, 50 users affected"}'
+
+==============================================================================
+FILE STRUCTURE
+==============================================================================
+
+  nexus-helpdesk-system/
+  ├── .env.example                   ← Master credentials template
+  ├── HOW_TO_ACTIVATE.txt            ← This file
+  ├── helpdesk-agent/
+  │   ├── GEMINI.md                  ← Antigravity IDE context file
+  │   ├── agents-cli-manifest.yaml   ← Cloud deployment config
+  │   ├── pyproject.toml             ← Dependencies
+  │   ├── deployment_metadata.json   ← Tracks deployed agent ID
+  │   ├── .env.example               ← Credentials template
+  │   ├── app/
+  │   │   ├── agent.py               ← ADK 2.0 triage workflow
+  │   │   ├── agent_runtime_app.py   ← Cloud Runtime entry point
+  │   │   ├── fast_api_app.py        ← Local development server
+  │   │   └── app_utils/
+  │   │       ├── typing.py          ← Pydantic Feedback model
+  │   │       └── telemetry.py       ← OpenTelemetry setup
+  │   └── tests/
+  │       └── test_agent.py          ← Unit tests (no API key needed)
+  └── supervisor-dashboard/
+      ├── .env.example               ← Dashboard credentials template
+      ├── pyproject.toml             ← Dependencies
+      ├── main.py                    ← FastAPI app (4 endpoints)
+      └── templates/
+          └── index.html             ← Glassmorphic teal supervisor UI
+
+==============================================================================
