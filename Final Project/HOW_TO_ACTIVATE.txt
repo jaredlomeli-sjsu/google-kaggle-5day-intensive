@@ -78,7 +78,7 @@ STEP 4 — RUN LOCALLY (no Google Cloud account needed)
     Affected System: Email
     Description: I received a suspicious phishing email with a malware attachment
 
-  Elevated ticket (card appears with AI analysis):
+  Elevated ticket (card appears with AI risk analysis AND drafted response email):
     Reporter: bob@nexus.com
     Category: Software
     Affected System: Corporate ERP
@@ -161,23 +161,28 @@ FILE STRUCTURE
   ├── helpdesk-agent/
   │   ├── GEMINI.md                  ← Antigravity IDE context file
   │   ├── agents-cli-manifest.yaml   ← Cloud deployment config
-  │   ├── pyproject.toml             ← Dependencies
+  │   ├── pyproject.toml             ← Dependencies (includes mcp>=1.0.0)
   │   ├── deployment_metadata.json   ← Tracks deployed agent ID
   │   ├── .env.example               ← Credentials template
   │   ├── app/
-  │   │   ├── agent.py               ← ADK 2.0 triage workflow
+  │   │   ├── agent.py               ← ADK 2.0 workflow (2 LlmAgents + 5 nodes)
+  │   │   ├── kb_mcp_server.py       ← MCP server: KB lookup, escalation matrix, SLA
   │   │   ├── agent_runtime_app.py   ← Cloud Runtime entry point
   │   │   ├── fast_api_app.py        ← Local development server
   │   │   └── app_utils/
   │   │       ├── typing.py          ← Pydantic Feedback model
   │   │       └── telemetry.py       ← OpenTelemetry setup
   │   └── tests/
-  │       └── test_agent.py          ← Unit tests (no API key needed)
+  │       └── test_agent.py          ← Unit tests — routing + MCP KB tools (no API key)
   └── supervisor-dashboard/
       ├── .env.example               ← Dashboard credentials template
       ├── pyproject.toml             ← Dependencies
       ├── main.py                    ← FastAPI app (4 endpoints)
       └── templates/
           └── index.html             ← Glassmorphic teal supervisor UI
+
+OPTIONAL — Run the KB MCP server standalone (for Claude Desktop, Cursor, etc.):
+  cd helpdesk-agent
+  uv run python -m app.kb_mcp_server
 
 ==============================================================================

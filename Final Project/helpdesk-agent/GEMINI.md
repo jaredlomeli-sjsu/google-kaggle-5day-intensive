@@ -24,13 +24,38 @@ uv tool install google-agents-cli
 
 ```
 START → parse_ticket → classify_priority
-  ├─ 'routine'  → auto_resolve       (KB article, no LLM)
+  ├─ 'routine'  → auto_resolve           (KB article lookup, no LLM)
   └─ 'elevated' → security_screen
-                   ├─ 'threat' → flag_security    (SOC alert, no LLM)
-                   └─ 'clean'  → risk_analyzer    (Gemini 2.0 Flash Lite)
+                   ├─ 'threat' → flag_security        (SOC alert, no LLM)
+                   └─ 'clean'  → risk_analyzer         (LlmAgent — Gemini 2.0 Flash Lite
+                                   |                    + MCP KB tools via kb_mcp_server.py)
                                    ↓
-                              human_review         (Supervisor Dashboard)
+                              prepare_draft_input      (bundles ticket + risk for drafter)
+                                   ↓
+                              response_drafter         (LlmAgent — Gemini 2.0 Flash Lite
+                                   |                    drafts professional reply email)
+                                   ↓
+                              human_review             (Supervisor Dashboard)
 ```
+
+## MCP Server
+
+`app/kb_mcp_server.py` is a standalone MCP server (Model Context Protocol, stdio transport)
+that exposes three tools:
+
+| Tool | Description |
+|------|-------------|
+| `lookup_kb_article(query)` | Searches the Nexus KB for relevant support articles |
+| `get_escalation_matrix()` | Returns the full IT escalation matrix |
+| `get_sla_target(severity)` | Returns the SLA target for LOW/MEDIUM/HIGH/CRITICAL |
+
+External MCP clients (Claude Desktop, Cursor, etc.) can connect to it by running:
+```bash
+uv run python -m app.kb_mcp_server
+```
+
+The same functions are imported directly into `agent.py` so the `risk_analyzer` LlmAgent
+can call them as ADK function tools in-process (no subprocess needed for local dev).
 
 ## Two-Service Setup (local development)
 
@@ -156,12 +181,13 @@ Requires explicit approval. Run `agents-cli deploy` only after user confirms.
 
 | File | Purpose |
 |------|---------|
-| `app/agent.py` | Core ADK 2.0 workflow — routing logic, LLM agent, all nodes |
+| `app/agent.py` | Core ADK 2.0 workflow — routing logic, two LlmAgents, all nodes |
+| `app/kb_mcp_server.py` | MCP server exposing KB lookup tools (also imported by agent.py) |
 | `app/fast_api_app.py` | Local Pub/Sub receiver (port 8080) |
 | `app/agent_runtime_app.py` | Cloud Agent Runtime entry point |
 | `app/app_utils/typing.py` | Pydantic feedback model |
 | `app/app_utils/telemetry.py` | OpenTelemetry + GCS log setup |
-| `tests/test_agent.py` | Unit tests for routing logic (no API key) |
+| `tests/test_agent.py` | Unit tests for routing logic + KB MCP tools (no API key) |
 | `../supervisor-dashboard/main.py` | FastAPI dashboard (port 8081) |
 | `../supervisor-dashboard/templates/index.html` | Glassmorphic UI |
 

@@ -100,3 +100,81 @@ def test_security_screen_passes_clean():
     security_screen(ctx, None)
     assert ctx.route == "clean"
     assert ctx.state["ticket"]["security_flags"] == []
+
+
+# ---------------------------------------------------------------------------
+# MCP KB server tests (no API key needed)
+# ---------------------------------------------------------------------------
+
+def test_kb_lookup_finds_erp_article():
+    from app.kb_mcp_server import lookup_kb_article
+    result = lookup_kb_article("ERP system outage")
+    assert "KB-101" in result
+
+
+def test_kb_lookup_finds_network_article():
+    from app.kb_mcp_server import lookup_kb_article
+    result = lookup_kb_article("network is down, users cannot connect")
+    assert "KB-103" in result
+
+
+def test_kb_lookup_returns_default_for_unknown():
+    from app.kb_mcp_server import lookup_kb_article
+    result = lookup_kb_article("quantum entanglement misconfiguration")
+    assert "KB-000" in result
+
+
+def test_get_escalation_matrix_returns_tiers():
+    from app.kb_mcp_server import get_escalation_matrix
+    result = get_escalation_matrix()
+    assert "Tier 2" in result
+    assert "Tier 3" in result
+    assert "SLA" in result
+
+
+def test_get_sla_target_high():
+    from app.kb_mcp_server import get_sla_target
+    result = get_sla_target("HIGH")
+    assert "1-hour" in result or "1 hour" in result or "PagerDuty" in result
+
+
+def test_get_sla_target_unknown_severity():
+    from app.kb_mcp_server import get_sla_target
+    result = get_sla_target("URGENT")
+    assert "Unknown" in result or "Valid" in result
+
+
+# ---------------------------------------------------------------------------
+# New workflow node tests (no API key needed)
+# ---------------------------------------------------------------------------
+
+def test_prepare_draft_input_bundles_ticket_and_analysis():
+    from app.agent import prepare_draft_input
+    ctx = FakeContext()
+    ctx.state["ticket"] = {"description": "ERP system is down, 50 users cannot work"}
+    ctx.state["risk_analysis"] = "HIGH severity — critical business system. RECOMMENDATION: Assign to Tier 3"
+    result = prepare_draft_input(ctx, None)
+    assert "ERP system is down" in result
+    assert "HIGH severity" in result
+
+
+def test_human_review_includes_response_draft():
+    from app.agent import human_review
+    ctx = FakeContext()
+    ctx.state["ticket"] = {"description": "ERP system is down, 50 users cannot work"}
+    ctx.state["risk_analysis"] = "HIGH severity. RECOMMENDATION: Assign to Tier 3"
+    ctx.state["response_draft"] = "Dear Bob, we are investigating the ERP issue. — Nexus IT Support Team"
+    result = human_review(ctx, None)
+    assert "HUMAN REVIEW REQUIRED" in result
+    assert "Drafted Response Email" in result
+    assert "Dear Bob" in result
+
+
+def test_human_review_without_draft():
+    from app.agent import human_review
+    ctx = FakeContext()
+    ctx.state["ticket"] = {"description": "ERP system is down"}
+    ctx.state["risk_analysis"] = "HIGH severity."
+    result = human_review(ctx, None)
+    assert "HUMAN REVIEW REQUIRED" in result
+    assert "Supervisor Dashboard" in result
