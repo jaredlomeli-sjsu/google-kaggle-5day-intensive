@@ -61,7 +61,7 @@ can call them as ADK function tools in-process (no subprocess needed for local d
 
 ```
 helpdesk-agent/       → FastAPI on port 8080 (the AI triage agent)
-supervisor-dashboard/ → FastAPI on port 8081 (the human approval UI)
+supervisor-dashboard/ → FastAPI on port 8082 (the human approval UI)
 ```
 
 The dashboard submits tickets to the agent via its Pub/Sub endpoint and displays
@@ -188,7 +188,7 @@ Requires explicit approval. Run `agents-cli deploy` only after user confirms.
 | `app/app_utils/typing.py` | Pydantic feedback model |
 | `app/app_utils/telemetry.py` | OpenTelemetry + GCS log setup |
 | `tests/test_agent.py` | Unit tests for routing logic + KB MCP tools (no API key) |
-| `../supervisor-dashboard/main.py` | FastAPI dashboard (port 8081) |
+| `../supervisor-dashboard/main.py` | FastAPI dashboard (port 8082) |
 | `../supervisor-dashboard/templates/index.html` | Glassmorphic UI |
 
 ## Operational Guidelines

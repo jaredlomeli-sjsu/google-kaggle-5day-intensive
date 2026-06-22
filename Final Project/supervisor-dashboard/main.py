@@ -3,8 +3,8 @@ Supervisor Dashboard — FastAPI app for the IT helpdesk human-in-the-loop workf
 
 HOW TO RUN LOCALLY:
   Terminal 1: cd helpdesk-agent && uv run uvicorn app.fast_api_app:fast_api_app --reload --port 8080
-  Terminal 2: cd supervisor-dashboard && uv run uvicorn main:app --reload --port 8081
-  Browser:    http://localhost:8081
+  Terminal 2: cd supervisor-dashboard && uv run uvicorn main:app --reload --port 8082
+  Browser:    http://localhost:8082
 """
 
 import base64
@@ -168,4 +168,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    uvicorn.run(app, host="0.0.0.0", port=8082)

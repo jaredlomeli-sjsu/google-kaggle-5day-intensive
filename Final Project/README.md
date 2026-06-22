@@ -27,7 +27,7 @@ The Nexus Technologies IT Helpdesk Triage Agent is built on Google ADK 2.0 and p
 
 ## Architecture
 
-The system runs as two separate services. The helpdesk agent runs on port 8080 and contains the full ADK 2.0 triage workflow. The supervisor dashboard runs on port 8081 and gives IT managers a web interface to review and act on tickets that need human judgment.
+The system runs as two separate services. The helpdesk agent runs on port 8080 and contains the full ADK 2.0 triage workflow. The supervisor dashboard runs on port 8082 and gives IT managers a web interface to review and act on tickets that need human judgment.
 
 ```
 START
@@ -84,7 +84,7 @@ Final Project/
 │   └── tests/
 │       └── test_agent.py              (17 unit tests, no API key needed)
 └── supervisor-dashboard/
-    ├── main.py                        (FastAPI supervisor app on port 8081)
+    ├── main.py                        (FastAPI supervisor app on port 8082)
     └── templates/
         └── index.html                 (glassmorphic teal supervisor UI)
 ```
@@ -133,10 +133,10 @@ uv run uvicorn app.fast_api_app:fast_api_app --reload --port 8080
 **Terminal 2 — Supervisor dashboard:**
 ```bash
 cd supervisor-dashboard
-uv run uvicorn main:app --reload --port 8081
+uv run uvicorn main:app --reload --port 8082
 ```
 
-Open your browser to `http://localhost:8081` to see the IT Supervisor Dashboard.
+Open your browser to `http://localhost:8082` to see the IT Supervisor Dashboard.
 
 ### Step 4: Test the three paths
 
