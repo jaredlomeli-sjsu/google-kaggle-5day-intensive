@@ -1,14 +1,19 @@
 """
-Nexus Technologies KB MCP Server.
+Nexus Technologies KB MCP Server — Agent Skills via Model Context Protocol.
 
-Exposes knowledge-base article lookups, the IT escalation matrix, and SLA
-targets as MCP tools via the Model Context Protocol (stdio transport).
+Exposes three agent skills as MCP tools (stdio transport):
+  - lookup_kb_article   : search the Nexus knowledge base
+  - get_escalation_matrix : return IT escalation paths and contacts
+  - get_sla_target      : return the SLA window for a given severity level
 
-Standalone usage (for external MCP clients such as Claude Desktop, Cursor, etc.):
+These skills are consumed by the risk_analyzer LlmAgent in agent.py and are
+also available to any external MCP client (Claude Desktop, Cursor, VS Code, etc.).
+
+Standalone MCP server usage:
   uv run python -m app.kb_mcp_server
 
-The same functions are also imported directly by agent.py so the risk_analyzer
-LlmAgent can call them as ADK function tools without a separate subprocess.
+The same functions are imported directly by agent.py so risk_analyzer can call
+them as ADK function tools in-process without spawning a subprocess.
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -59,6 +64,7 @@ _SLA_MAP = {
 }
 
 
+# Agent Skill 1: Knowledge base article search
 @mcp.tool()
 def lookup_kb_article(query: str) -> str:
     """
@@ -80,6 +86,7 @@ def lookup_kb_article(query: str) -> str:
     return "No specific article found. See KB-000: IT Self-Service Portal — nexus.internal/kb"
 
 
+# Agent Skill 2: IT escalation matrix
 @mcp.tool()
 def get_escalation_matrix() -> str:
     """
@@ -91,6 +98,7 @@ def get_escalation_matrix() -> str:
     return _ESCALATION_MATRIX
 
 
+# Agent Skill 3: SLA target lookup
 @mcp.tool()
 def get_sla_target(severity: str) -> str:
     """

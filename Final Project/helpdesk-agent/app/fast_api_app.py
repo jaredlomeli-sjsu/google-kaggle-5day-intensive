@@ -71,8 +71,14 @@ async def pubsub_trigger(request: Request):
             session_id=session.id,
             new_message=content,
         ):
-            if event.content and event.content.parts:
-                result_text = event.content.parts[-1].text or result_text
+            # LlmAgent events surface text via event.content.parts
+            if hasattr(event, "content") and event.content and event.content.parts:
+                text = event.content.parts[-1].text
+                if text:
+                    result_text = text
+            # Workflow @node events surface text via event.output (string return value)
+            elif hasattr(event, "output") and isinstance(event.output, str) and event.output:
+                result_text = event.output
     except Exception as e:
         err = str(e)
         if any(k in err for k in ("RESOURCE_EXHAUSTED", "429", "API_KEY_INVALID", "UNAUTHENTICATED")):

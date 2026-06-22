@@ -218,7 +218,7 @@ def flag_security(ctx: Context, node_input) -> str:
 
 risk_analyzer = LlmAgent(
     name="risk_analyzer",
-    model="gemini-2.0-flash-lite",
+    model="gemini-2.5-flash",
     instruction=(
         "You are a Tier 2 IT incident analyst for Nexus Technologies. "
         "Review this support ticket and assess the severity. "
@@ -254,7 +254,7 @@ def prepare_draft_input(ctx: Context, node_input) -> str:
 
 response_drafter = LlmAgent(
     name="response_drafter",
-    model="gemini-2.0-flash-lite",
+    model="gemini-2.5-flash",
     instruction=(
         "You are a professional IT communications specialist for Nexus Technologies. "
         "You will receive a support ticket and its risk analysis. "
